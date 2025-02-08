@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
 using MSCLoader;
 using UnityEngine;
 
@@ -16,13 +17,38 @@ namespace HowMuchIsLeft
         TextMesh foregroundText;
         TextMesh shadowText;
 
-        private const int LayerItem = 19;
-        private readonly string[] fluid_items = new string[]
+        static string text;
+
+        private readonly int LayerItem = 19;
+
+        static void HandleFluidItem(GameObject item)
         {
-            "coolant(itemx)",
-            "motor oil(itemx)",
-            "brake fluid(itemx)",
-            "two stroke fuel(itemx)",
+            float fluid = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat("Fluid").Value;
+            text = $"{fluid:0.00} liters remaining";
+        }
+
+        static void HandleCoffeeItem(GameObject item)
+        {
+            float content = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat("Ground").Value;
+            content = content * 5f; // product label says 500g
+            text = $"{content:0.} grams remaining";
+        }
+
+        static void HandleCharcoalItem(GameObject item)
+        {
+            float content = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat("Contents").Value;
+            content = content / 10f; // product label says 14L or 1.7Kg
+            text = $"{content:0.00} liters remaining";
+        }
+
+        static readonly Dictionary<string, Action<GameObject>> itemHandlersMap = new Dictionary<string, Action<GameObject>>
+        {
+            { "coolant(itemx)", HandleFluidItem },
+            { "motor oil(itemx)", HandleFluidItem },
+            { "brake fluid(itemx)", HandleFluidItem },
+            { "two stroke fuel(itemx)", HandleFluidItem },
+            { "ground coffee(itemx)", HandleCoffeeItem },
+            { "grill charcoal(itemx)", HandleCharcoalItem },
         };
 
         public override void ModSetup()
@@ -47,14 +73,13 @@ namespace HowMuchIsLeft
         private void Mod_Update()
         {
             // Update is called once per frame
-            string text = "";
+            text = "";
 
             RaycastHit raycastHit = UnifiedRaycast.GetRaycastHit();
 
             if (
                 raycastHit.collider == null || 
-                raycastHit.transform.gameObject.layer != LayerItem || 
-                !fluid_items.Contains(raycastHit.transform.gameObject.name))
+                raycastHit.transform.gameObject.layer != LayerItem)
             {
                 UpdateDescription(text);
                 return;
@@ -62,8 +87,8 @@ namespace HowMuchIsLeft
 
             GameObject item = raycastHit.transform.gameObject;
 
-            float fluid = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat("Fluid").Value;
-            text = $"{fluid:0.00} liters remaining";
+            if (itemHandlersMap.TryGetValue(item.name, out Action<GameObject> handler))
+                handler(item);
 
             UpdateDescription(text);
         }
