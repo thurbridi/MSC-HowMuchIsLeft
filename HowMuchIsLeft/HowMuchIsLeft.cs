@@ -28,7 +28,6 @@ namespace HowMuchIsLeft
         public override void ModSetup()
         {
             SetupFunction(Setup.OnLoad, Mod_OnLoad);
-            SetupFunction(Setup.OnGUI, Mod_OnGUI);
             SetupFunction(Setup.Update, Mod_Update);
             SetupFunction(Setup.ModSettings, Mod_Settings);
         }
@@ -44,10 +43,7 @@ namespace HowMuchIsLeft
             // Called once, when mod is loading after game is fully loaded
             InitializeDescription();
         }
-        private void Mod_OnGUI()
-        {
-            // Draw unity OnGUI() here
-        }
+
         private void Mod_Update()
         {
             // Update is called once per frame
