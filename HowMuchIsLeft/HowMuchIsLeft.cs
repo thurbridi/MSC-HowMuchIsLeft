@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using MSCLoader;
 using UnityEngine;
 
@@ -10,45 +11,84 @@ namespace HowMuchIsLeft
         public override string ID => "HowMuchIsLeft"; // Your (unique) mod ID 
         public override string Name => "HowMuchIsLeft"; // Your mod name
         public override string Author => "casper-3"; // Name of the Author (your name)
-        public override string Version => "1.0"; // Version
-        public override string Description => ""; // Short description of your mod
+        public override string Version => "1.1.0"; // Version
+        public override string Description => "Displays the contents of some items. See settings to customize."; // Short description of your mod
 
         GameObject contentDescription;
         TextMesh foregroundText;
         TextMesh shadowText;
 
-        static string text;
+        private static SettingsCheckBoxGroup detailsExactSetting;
+        private static SettingsCheckBoxGroup detailsRoughSetting;
+        private static SettingsCheckBoxGroup detailsEducatedSetting;
+
+        private static string text;
 
         private readonly int LayerItem = 19;
 
-        static void HandleFluidItem(GameObject item)
+
+        private static void GenerateText(GameObject item, string fsmVar, float maxAmount, string unit, Func<float, float> converter)
         {
-            float fluid = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat("Fluid").Value;
-            text = $"{fluid:0.00} liters remaining";
+            float amount = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat(fsmVar).Value;
+            
+            if (detailsExactSetting.GetValue()) { 
+                text = ExactValueText(converter(amount), unit);
+                return;
+            }
+
+            if (detailsRoughSetting.GetValue())
+                text = RoughGuessText(amount / maxAmount);
+
+            if (detailsEducatedSetting.GetValue())
+                text = EducatedGuessText(amount / maxAmount);
         }
 
-        static void HandleCoffeeItem(GameObject item)
+        private static string ExactValueText(float amount, string unit)
         {
-            float content = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat("Ground").Value;
-            content = content * 5f; // product label says 500g
-            text = $"{content:0.} grams remaining";
+            return $"{amount:0.##} {unit}{(amount == 1f? "" : "s")} remaining";
+        }
+        
+        private static string RoughGuessText(float value)
+        {
+            if (value == 1f)
+                return "it's full";
+            else if (value > .75f)
+                return "it's almost full";
+            else if (value > .25f)
+                return "about half remaining";
+            else
+                return "there's still some left";
         }
 
-        static void HandleCharcoalItem(GameObject item)
+        private static string EducatedGuessText(float value)
         {
-            float content = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat("Contents").Value;
-            content = content / 10f; // product label says 14L or 1.7Kg
-            text = $"{content:0.00} liters remaining";
+            if (value == 1f)
+                return "it's full";
+            else if (value > .875f)
+                return "nearly full";
+            else if (value > .75f)
+                return "more than 3/4 left";
+            else if (value > .625f)
+                return "less than 3/4 left";
+            else if (value >= 0.375f)
+                return "about half remaining";
+            else if (value > .25f)
+                return "more than 1/4 left";
+            else if (value > .125f)
+                return "less than 1/4 left";
+            else
+                return "it's almost empty";
         }
 
-        static readonly Dictionary<string, Action<GameObject>> itemHandlersMap = new Dictionary<string, Action<GameObject>>
+        private readonly Dictionary<string, Action<GameObject>> itemHandlerMap = new Dictionary<string, Action<GameObject>>
         {
-            { "coolant(itemx)", HandleFluidItem },
-            { "motor oil(itemx)", HandleFluidItem },
-            { "brake fluid(itemx)", HandleFluidItem },
-            { "two stroke fuel(itemx)", HandleFluidItem },
-            { "ground coffee(itemx)", HandleCoffeeItem },
-            { "grill charcoal(itemx)", HandleCharcoalItem },
+            { "coolant(itemx)", (item) => GenerateText(item, "Fluid", 10f, "liter", (x) => x) },
+            { "motor oil(itemx)", (item) => GenerateText(item, "Fluid", 4f, "liter", (x) => x) },
+            { "brake fluid(itemx)", (item) => GenerateText(item, "Fluid", 1f, "liter", (x) => x)},
+            { "two stroke fuel(itemx)", (item) => GenerateText(item, "Fluid", 5f, "liter", (x) => x)},
+            { "ground coffee(itemx)", (item) => GenerateText(item, "Ground", 100f, "gram", (x) => x * 5f)},
+            { "grill charcoal(itemx)", (item) => GenerateText(item, "Contents", 140f, "liter", (x) => x / 10f)},
+            { "spray can(itemx)", (item) => GenerateText(item, "Fluid", 100f, "unit", (x) => x)},
         };
 
         public override void ModSetup()
@@ -62,6 +102,10 @@ namespace HowMuchIsLeft
         {
             // All settings should be created here. 
             // DO NOT put anything that isn't settings or keybinds in here!
+            Settings.AddHeader("Information detail");
+            detailsExactSetting = Settings.AddCheckBoxGroup("detailsExactSetting", "Show exact values", true, "group_content_details");
+            detailsRoughSetting = Settings.AddCheckBoxGroup("detailsRoughSetting", "Show rough guess", false, "group_content_details");
+            detailsEducatedSetting = Settings.AddCheckBoxGroup("detailsRoughSetting", "Show educated guess", false, "group_content_details");
         }
 
         private void Mod_OnLoad()
@@ -87,7 +131,7 @@ namespace HowMuchIsLeft
 
             GameObject item = raycastHit.transform.gameObject;
 
-            if (itemHandlersMap.TryGetValue(item.name, out Action<GameObject> handler))
+            if (itemHandlerMap.TryGetValue(item.name, out Action<GameObject> handler))
                 handler(item);
 
             UpdateDescription(text);
