@@ -105,7 +105,7 @@ namespace HowMuchIsLeft
             Settings.AddHeader("Information detail");
             detailsExactSetting = Settings.AddCheckBoxGroup("detailsExactSetting", "Show exact values", true, "group_content_details");
             detailsRoughSetting = Settings.AddCheckBoxGroup("detailsRoughSetting", "Show rough guess", false, "group_content_details");
-            detailsEducatedSetting = Settings.AddCheckBoxGroup("detailsRoughSetting", "Show educated guess", false, "group_content_details");
+            detailsEducatedSetting = Settings.AddCheckBoxGroup("detailsEducatedSetting", "Show educated guess", false, "group_content_details");
         }
 
         private void Mod_OnLoad()
