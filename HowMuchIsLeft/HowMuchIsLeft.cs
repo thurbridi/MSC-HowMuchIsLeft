@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using MSCLoader;
 using UnityEngine;
 
@@ -11,7 +10,7 @@ namespace HowMuchIsLeft
         public override string ID => "HowMuchIsLeft"; // Your (unique) mod ID 
         public override string Name => "HowMuchIsLeft"; // Your mod name
         public override string Author => "casper-3"; // Name of the Author (your name)
-        public override string Version => "1.1.0"; // Version
+        public override string Version => "1.2.0"; // Version
         public override string Description => "Displays the contents of some items. See settings to customize."; // Short description of your mod
 
         GameObject contentDescription;
@@ -22,59 +21,104 @@ namespace HowMuchIsLeft
         private static SettingsCheckBoxGroup detailsRoughSetting;
         private static SettingsCheckBoxGroup detailsEducatedSetting;
 
+        private static SettingsCheckBox alwaysExactCountablesSetting;
+
         private static string text;
 
         private readonly int LayerItem = 19;
 
-
-        private static void GenerateText(GameObject item, string fsmVar, float maxAmount, string unit, Func<float, float> converter)
+        private static void GenerateText(double amount, double maxAmount, string name, string namePlural = null, Func<Double, Double> f = null, bool forceExact = false)
         {
-            float amount = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat(fsmVar).Value;
-            
-            if (detailsExactSetting.GetValue()) { 
-                text = ExactValueText(converter(amount), unit);
+            if (forceExact | detailsExactSetting.GetValue()) {
+                var fAmount = f != null ? f(amount) : amount;
+
+                text = ExactValueText(fAmount, Pluralize(fAmount, name, namePlural));
                 return;
             }
 
+            var amountNormalized = amount / maxAmount;
+
             if (detailsRoughSetting.GetValue())
-                text = RoughGuessText(amount / maxAmount);
+            {
+                text = RoughGuessText(amountNormalized);
+                return;
+            }
 
             if (detailsEducatedSetting.GetValue())
-                text = EducatedGuessText(amount / maxAmount);
+                text = EducatedGuessText(amountNormalized);
         }
 
-        private static string ExactValueText(float amount, string unit)
+        private static void HandleUncountableItem(GameObject item, string fsmVar, float maxAmount, string name, string namePlural = null, Func<double, double> f = null)
         {
-            return $"{amount:0.##} {unit}{(amount == 1f? "" : "s")} remaining";
+            float amount = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat(fsmVar).Value;
+            GenerateText(amount, maxAmount, name, namePlural, f);
         }
-        
-        private static string RoughGuessText(float value)
+
+        private static void HandleCountableItem(GameObject item, string fsmVar, int maxAmount, string name, string namePlural = null, Func<double, double> f = null)
         {
-            if (value == 1f)
+            int amount = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmInt(fsmVar).Value;
+            GenerateText(amount, maxAmount, name, namePlural, f, alwaysExactCountablesSetting.GetValue());
+        }
+
+        private static void FireExtinguisherHandler(GameObject item, string fsmVar, float maxAmount, string name, string namePlural = null, Func<double, double> f = null)
+        {
+            PlayMakerFSM[] fsms;
+            HutongGames.PlayMaker.FsmFloat amount;
+            
+            fsms = item.GetComponents<PlayMakerFSM>();
+            foreach (PlayMakerFSM fsm in fsms)
+            {
+                amount = fsm.FsmVariables.FindFsmFloat(fsmVar);
+                if (amount != null) {
+                    GenerateText(amount.Value, maxAmount, name, namePlural, f);
+                    return;
+                }
+            }
+        }
+
+        private static string Pluralize(double amount, string singular, string plural = null)
+        {
+            if (amount == 1)
+                return singular;
+
+            if (plural != null)
+                return plural;
+
+            return $"{singular}s";
+        }
+
+        private static string ExactValueText(double amount, string name)
+        {
+            return $"{amount:0.##} {name} remaining";
+        }
+
+        private static string RoughGuessText(double value)
+        {
+            if (value == 1.0)
                 return "it's full";
-            else if (value > .75f)
+            else if (value > .75)
                 return "it's almost full";
-            else if (value > .25f)
+            else if (value > .25)
                 return "about half remaining";
             else
                 return "there's still some left";
         }
 
-        private static string EducatedGuessText(float value)
+        private static string EducatedGuessText(double value)
         {
-            if (value == 1f)
+            if (value == 1.0)
                 return "it's full";
-            else if (value > .875f)
+            else if (value > .875)
                 return "nearly full";
-            else if (value > .75f)
+            else if (value > .75)
                 return "more than 3/4 left";
-            else if (value > .625f)
+            else if (value > .625)
                 return "less than 3/4 left";
-            else if (value >= 0.375f)
+            else if (value >= 0.375)
                 return "about half remaining";
-            else if (value > .25f)
+            else if (value > .25)
                 return "more than 1/4 left";
-            else if (value > .125f)
+            else if (value > .125)
                 return "less than 1/4 left";
             else
                 return "it's almost empty";
@@ -82,13 +126,22 @@ namespace HowMuchIsLeft
 
         private readonly Dictionary<string, Action<GameObject>> itemHandlerMap = new Dictionary<string, Action<GameObject>>
         {
-            { "coolant(itemx)", (item) => GenerateText(item, "Fluid", 10f, "liter", (x) => x) },
-            { "motor oil(itemx)", (item) => GenerateText(item, "Fluid", 4f, "liter", (x) => x) },
-            { "brake fluid(itemx)", (item) => GenerateText(item, "Fluid", 1f, "liter", (x) => x)},
-            { "two stroke fuel(itemx)", (item) => GenerateText(item, "Fluid", 5f, "liter", (x) => x)},
-            { "ground coffee(itemx)", (item) => GenerateText(item, "Ground", 100f, "gram", (x) => x * 5f)},
-            { "grill charcoal(itemx)", (item) => GenerateText(item, "Contents", 140f, "liter", (x) => x / 10f)},
-            { "spray can(itemx)", (item) => GenerateText(item, "Fluid", 100f, "unit", (x) => x)},
+            { "coolant(itemx)", (item) => HandleUncountableItem(item, "Fluid", 10f, "liter") },
+            { "motor oil(itemx)", (item) => HandleUncountableItem(item, "Fluid", 4f, "liter") },
+            { "brake fluid(itemx)", (item) => HandleUncountableItem(item, "Fluid", 1f, "liter") },
+            { "two stroke fuel(itemx)", (item) => HandleUncountableItem(item, "Fluid", 5f, "liter")},
+            { "ground coffee(itemx)", (item) => HandleUncountableItem(item, "Ground", 100f, "gram", f: (x) => x * 5f)},
+            { "grill charcoal(itemx)", (item) => HandleUncountableItem(item, "Contents", 140f, "liter", f: (x) => x / 10f)},
+            { "spray can(itemx)", (item) => HandleUncountableItem(item, "Fluid", 100f, "unit") },
+            { "mosquito spray(itemx)", (item) => HandleUncountableItem(item, "Fluid", 100f, "unit") },
+
+            { "fuse package(Clone)", (item) => HandleCountableItem(item, "Quantity", 5, "fuse") },
+            { "r20 battery box(Clone)", (item) => HandleCountableItem(item, "Quantity", 4, "battery", namePlural: "batteries" )},
+            { "spark plug box(Clone)", (item) => HandleCountableItem(item, "Quantity", 4, "spark plug") },
+            { "teimo advert pile(itemx)", (item) => HandleCountableItem(item, "Sheets", 30, "sheet") },
+            
+            { "fire extinguisher(itemx)", (item) => FireExtinguisherHandler(item, "Fluid", 100f, "unit") },
+
         };
 
         public override void ModSetup()
@@ -106,6 +159,9 @@ namespace HowMuchIsLeft
             detailsExactSetting = Settings.AddCheckBoxGroup("detailsExactSetting", "Show exact values", true, "group_content_details");
             detailsRoughSetting = Settings.AddCheckBoxGroup("detailsRoughSetting", "Show rough guess", false, "group_content_details");
             detailsEducatedSetting = Settings.AddCheckBoxGroup("detailsEducatedSetting", "Show educated guess", false, "group_content_details");
+
+            Settings.AddText("Overrides");
+            alwaysExactCountablesSetting = Settings.AddCheckBox("alwaysExactCountablesSetting", "Always show exact value for countables", true);
         }
 
         private void Mod_OnLoad()
