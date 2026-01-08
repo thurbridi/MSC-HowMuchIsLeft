@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using MSCLoader;
 using UnityEngine;
 
@@ -10,57 +9,42 @@ namespace HowMuchIsLeft
         public override string ID => "HowMuchIsLeft"; // Your (unique) mod ID 
         public override string Name => "HowMuchIsLeft"; // Your mod name
         public override string Author => "casper-3"; // Name of the Author (your name)
-        public override string Version => "1.2.0"; // Version
+        public override string Version => "1.3.0"; // Version
         public override string Description => "Displays the contents of some items. See settings to customize."; // Short description of your mod
+        public override Game SupportedGames => Game.MySummerCar | Game.MyWinterCar;
 
-        GameObject contentDescription;
-        TextMesh foregroundText;
-        TextMesh shadowText;
+        
+        static SettingsCheckBoxGroup detailsExactSetting;
+        static SettingsCheckBoxGroup detailsRoughSetting;
+        static SettingsCheckBoxGroup detailsEducatedSetting;
 
-        private static SettingsCheckBoxGroup detailsExactSetting;
-        private static SettingsCheckBoxGroup detailsRoughSetting;
-        private static SettingsCheckBoxGroup detailsEducatedSetting;
+        static SettingsCheckBox alwaysExactCountablesSetting;
 
-        private static SettingsCheckBox alwaysExactCountablesSetting;
+        static string text;
+        static RaycastHit raycastHit;
 
-        private static string text;
+        private readonly int layerItem = 19;
 
-        private readonly int LayerItem = 19;
-
-        private static void GenerateText(double amount, double maxAmount, string name, string namePlural = null, Func<Double, Double> f = null, bool forceExact = false)
+        internal static void GenerateText(double amount, double maxAmount, string name, bool isCountable, string namePlural = null, Func<Double, Double> f = null)
         {
+            bool forceExact = isCountable & alwaysExactCountablesSetting.GetValue();
             if (forceExact | detailsExactSetting.GetValue()) {
                 var fAmount = f != null ? f(amount) : amount;
 
-                text = ExactValueText(fAmount, Pluralize(fAmount, name, namePlural));
+                text = Utils.ExactValueText(fAmount, Utils.Pluralize(fAmount, name, namePlural));
                 return;
             }
 
             var amountNormalized = amount / maxAmount;
 
             if (detailsRoughSetting.GetValue())
-            {
-                text = RoughGuessText(amountNormalized);
-                return;
-            }
+                text = Utils.RoughGuessText(amountNormalized);
 
             if (detailsEducatedSetting.GetValue())
-                text = EducatedGuessText(amountNormalized);
+                text = Utils.EducatedGuessText(amountNormalized);
         }
 
-        private static void HandleUncountableItem(GameObject item, string fsmVar, float maxAmount, string name, string namePlural = null, Func<double, double> f = null)
-        {
-            float amount = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat(fsmVar).Value;
-            GenerateText(amount, maxAmount, name, namePlural, f);
-        }
-
-        private static void HandleCountableItem(GameObject item, string fsmVar, int maxAmount, string name, string namePlural = null, Func<double, double> f = null)
-        {
-            int amount = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmInt(fsmVar).Value;
-            GenerateText(amount, maxAmount, name, namePlural, f, alwaysExactCountablesSetting.GetValue());
-        }
-
-        private static void FireExtinguisherHandler(GameObject item, string fsmVar, float maxAmount, string name, string namePlural = null, Func<double, double> f = null)
+        private static void HandleFireExtinguisher(GameObject item, string fsmVar, float maxAmount, string name, string namePlural = null, Func<double, double> f = null)
         {
             PlayMakerFSM[] fsms;
             HutongGames.PlayMaker.FsmFloat amount;
@@ -70,79 +54,48 @@ namespace HowMuchIsLeft
             {
                 amount = fsm.FsmVariables.FindFsmFloat(fsmVar);
                 if (amount != null) {
-                    GenerateText(amount.Value, maxAmount, name, namePlural, f);
+                    GenerateText(amount.Value, maxAmount, name, isCountable: false, namePlural, f);
                     return;
                 }
             }
         }
 
-        private static string Pluralize(double amount, string singular, string plural = null)
+        private void RegisterCommonItems()
         {
-            if (amount == 1)
-                return singular;
+            ItemRegistry.RegisterItem("coolant(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 10f, "liter"));
+            ItemRegistry.RegisterItem("motor oil(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 4f, "liter"));
+            ItemRegistry.RegisterItem("brake fluid(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 1f, "liter"));
+            ItemRegistry.RegisterItem("two stroke fuel(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 5f, "liter"));
+            ItemRegistry.RegisterItem("ground coffee(itemx)", (item) => Utils.HandleUncountableItem(item, "Ground", 100f, "gram", f: (x) => x * 5f));
+            ItemRegistry.RegisterItem("grill charcoal(itemx)", (item) => Utils.HandleUncountableItem(item, "Contents", 140f, "liter", f: (x) => x / 10f));
+            ItemRegistry.RegisterItem("spray can(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 100f, "unit"));
+            ItemRegistry.RegisterItem("mosquito spray(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 100f, "unit"));
 
-            if (plural != null)
-                return plural;
+            ItemRegistry.RegisterItem("fuse package(Clone)", (item) => Utils.HandleCountableItem(item, "Quantity", 5, "fuse"));
+            ItemRegistry.RegisterItem("r20 battery box(Clone)", (item) => Utils.HandleCountableItem(item, "Quantity", 4, "battery", namePlural: "batteries"));
+            ItemRegistry.RegisterItem("spark plug box(Clone)", (item) => Utils.HandleCountableItem(item, "Quantity", 4, "spark plug"));
 
-            return $"{singular}s";
+            ItemRegistry.RegisterItem("fire extinguisher(itemx)", (item) => HandleFireExtinguisher(item, "Fluid", 100f, "unit"));
         }
 
-        private static string ExactValueText(double amount, string name)
+        private void RegisterMySummerCarItems()
         {
-            return $"{amount:0.##} {name} remaining";
+            RegisterCommonItems();
+            ItemRegistry.RegisterItem("teimo advert pile(itemx)", (item) => Utils.HandleCountableItem(item, "Sheets", 30, "sheet"));
         }
 
-        private static string RoughGuessText(double value)
+        private void RegisterMyWinterCarItems()
         {
-            if (value == 1.0)
-                return "it's full";
-            else if (value > .75)
-                return "it's almost full";
-            else if (value > .25)
-                return "about half remaining";
-            else
-                return "there's still some left";
+            RegisterCommonItems();
+            ItemRegistry.RegisterItem("automatic transmission fluid(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 1f, "liter"));
+
+            ItemRegistry.RegisterItem("advert pile(itemx)", (item) => Utils.HandleCountableItem(item, "Sheets", 30, "sheet"));
+            ItemRegistry.RegisterItem("chargers box(Clone)", (item) => Utils.HandleCountableItem(item, "Items", 40, "charger"));
+            ItemRegistry.RegisterItem("packaging sheets(Clone)", (item) => Utils.HandleCountableItem(item, "Items", 20, "sheet"));
+            ItemRegistry.RegisterItem("manuals box(Clone)", (item) => Utils.HandleCountableItem(item, "Items", 80, "manual"));
+            ItemRegistry.RegisterItem("plastic trays(Clone)", (item) => Utils.HandleCountableItem(item, "Items", 20, "tray"));
+            // TODO: Packages box, look into the different logic 
         }
-
-        private static string EducatedGuessText(double value)
-        {
-            if (value == 1.0)
-                return "it's full";
-            else if (value > .875)
-                return "nearly full";
-            else if (value > .75)
-                return "more than 3/4 left";
-            else if (value > .625)
-                return "less than 3/4 left";
-            else if (value >= 0.375)
-                return "about half remaining";
-            else if (value > .25)
-                return "more than 1/4 left";
-            else if (value > .125)
-                return "less than 1/4 left";
-            else
-                return "it's almost empty";
-        }
-
-        private readonly Dictionary<string, Action<GameObject>> itemHandlerMap = new Dictionary<string, Action<GameObject>>
-        {
-            { "coolant(itemx)", (item) => HandleUncountableItem(item, "Fluid", 10f, "liter") },
-            { "motor oil(itemx)", (item) => HandleUncountableItem(item, "Fluid", 4f, "liter") },
-            { "brake fluid(itemx)", (item) => HandleUncountableItem(item, "Fluid", 1f, "liter") },
-            { "two stroke fuel(itemx)", (item) => HandleUncountableItem(item, "Fluid", 5f, "liter")},
-            { "ground coffee(itemx)", (item) => HandleUncountableItem(item, "Ground", 100f, "gram", f: (x) => x * 5f)},
-            { "grill charcoal(itemx)", (item) => HandleUncountableItem(item, "Contents", 140f, "liter", f: (x) => x / 10f)},
-            { "spray can(itemx)", (item) => HandleUncountableItem(item, "Fluid", 100f, "unit") },
-            { "mosquito spray(itemx)", (item) => HandleUncountableItem(item, "Fluid", 100f, "unit") },
-
-            { "fuse package(Clone)", (item) => HandleCountableItem(item, "Quantity", 5, "fuse") },
-            { "r20 battery box(Clone)", (item) => HandleCountableItem(item, "Quantity", 4, "battery", namePlural: "batteries" )},
-            { "spark plug box(Clone)", (item) => HandleCountableItem(item, "Quantity", 4, "spark plug") },
-            { "teimo advert pile(itemx)", (item) => HandleCountableItem(item, "Sheets", 30, "sheet") },
-            
-            { "fire extinguisher(itemx)", (item) => FireExtinguisherHandler(item, "Fluid", 100f, "unit") },
-
-        };
 
         public override void ModSetup()
         {
@@ -166,56 +119,32 @@ namespace HowMuchIsLeft
 
         private void Mod_OnLoad()
         {
-            // Called once, when mod is loading after game is fully loaded
-            InitializeDescription();
+            // Called once, when mod is loading after game is fully 
+            if (ModLoader.CurrentGame == Game.MySummerCar)
+                RegisterMySummerCarItems();
+            else if (ModLoader.CurrentGame == Game.MyWinterCar)
+                RegisterMyWinterCarItems();
         }
 
         private void Mod_Update()
         {
-            // Update is called once per frame
             text = "";
-
-            RaycastHit raycastHit = UnifiedRaycast.GetRaycastHit();
+            raycastHit = UnifiedRaycast.GetRaycastHit();
 
             if (
                 raycastHit.collider == null || 
-                raycastHit.transform.gameObject.layer != LayerItem)
+                raycastHit.transform.gameObject.layer != layerItem)
             {
-                UpdateDescription(text);
+                ItemContentDescription.SetText(text);
                 return;
             };
 
             GameObject item = raycastHit.transform.gameObject;
 
-            if (itemHandlerMap.TryGetValue(item.name, out Action<GameObject> handler))
+            if (ItemRegistry.TryGetItemHandler(item.name, out Action<GameObject> handler))
                 handler(item);
 
-            UpdateDescription(text);
-        }
-
-        private void InitializeDescription()
-        {
-            GameObject partName = GameObject.Find("GUI/Indicators/Partname");
-
-            contentDescription = GameObject.Instantiate(partName);
-
-            GameObject.Destroy(contentDescription.GetComponent<PlayMakerFSM>());
-
-            contentDescription.name = "ContentDescription";
-            contentDescription.transform.parent = partName.transform.parent;
-            contentDescription.transform.localPosition = new Vector3(0.0f, -0.21f, 0.0f);
-
-            foregroundText = contentDescription.GetComponent<TextMesh>();
-            shadowText = contentDescription.transform.GetChild(0).GetComponent<TextMesh>();
-
-            foregroundText.characterSize = 0.05f;
-            shadowText.characterSize = 0.05f;
-        }
-
-        private void UpdateDescription(string text)
-        {
-            foregroundText.text = text;
-            shadowText.text = text;
+            ItemContentDescription.SetText(text);
         }
     }
 }
