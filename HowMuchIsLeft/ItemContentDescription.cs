@@ -2,7 +2,7 @@
 
 namespace HowMuchIsLeft
 {
-    public static class ItemContentDescription
+    internal static class ItemContentDescription
     {
         static GameObject contentDescription;
         static TextMesh foregroundText;

@@ -4,20 +4,17 @@ using UnityEngine;
 
 namespace HowMuchIsLeft
 {
-    namespace API
+    internal static class ItemRegistry
     {
-        public static class ItemRegistry
+        private static Dictionary<string, Action<GameObject>> itemHandlers = new Dictionary<string, Action<GameObject>>();
+        internal static void RegisterItem(string itemName, Action<GameObject> handler)
         {
-            private static Dictionary<string, Action<GameObject>> itemHandlers = new Dictionary<string, Action<GameObject>>();
-            public static void RegisterItem(string itemName, Action<GameObject> handler)
-            {
-                itemHandlers[itemName] = handler;
-            }
+            itemHandlers[itemName] = handler;
+        }
 
-            public static bool TryGetItemHandler(string itemName, out Action<GameObject> handler)
-            {
-                return itemHandlers.TryGetValue(itemName, out handler);
-            }
+        internal static bool TryGetItemHandler(string itemName, out Action<GameObject> handler)
+        {
+            return itemHandlers.TryGetValue(itemName, out handler);
         }
     }
 }

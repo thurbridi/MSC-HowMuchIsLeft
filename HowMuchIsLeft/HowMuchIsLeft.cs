@@ -13,45 +13,35 @@ namespace HowMuchIsLeft
         public override string Description => "Displays the contents of some items. See settings to customize."; // Short description of your mod
         public override Game SupportedGames => Game.MySummerCar | Game.MyWinterCar;
 
-        private static SettingsCheckBoxGroup detailsExactSetting;
-        private static SettingsCheckBoxGroup detailsRoughSetting;
-        private static SettingsCheckBoxGroup detailsEducatedSetting;
+        
+        static SettingsCheckBoxGroup detailsExactSetting;
+        static SettingsCheckBoxGroup detailsRoughSetting;
+        static SettingsCheckBoxGroup detailsEducatedSetting;
 
-        private static SettingsCheckBox alwaysExactCountablesSetting;
+        static SettingsCheckBox alwaysExactCountablesSetting;
 
-        private static string text;
+        static string text;
         static RaycastHit raycastHit;
 
         private readonly int layerItem = 19;
 
-        public static void GenerateText(double amount, double maxAmount, string name, string namePlural = null, Func<Double, Double> f = null, bool forceExact = false)
+        internal static void GenerateText(double amount, double maxAmount, string name, bool isCountable, string namePlural = null, Func<Double, Double> f = null)
         {
+            bool forceExact = isCountable & alwaysExactCountablesSetting.GetValue();
             if (forceExact | detailsExactSetting.GetValue()) {
                 var fAmount = f != null ? f(amount) : amount;
 
-                text = ExactValueText(fAmount, Pluralize(fAmount, name, namePlural));
+                text = Utils.ExactValueText(fAmount, Utils.Pluralize(fAmount, name, namePlural));
                 return;
             }
 
             var amountNormalized = amount / maxAmount;
 
             if (detailsRoughSetting.GetValue())
-                text = RoughGuessText(amountNormalized);
+                text = Utils.RoughGuessText(amountNormalized);
 
             if (detailsEducatedSetting.GetValue())
-                text = EducatedGuessText(amountNormalized);
-        }
-
-        public static void HandleUncountableItem(GameObject item, string fsmVar, float maxAmount, string name, string namePlural = null, Func<double, double> f = null)
-        {
-            float amount = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmFloat(fsmVar).Value;
-            GenerateText(amount, maxAmount, name, namePlural, f);
-        }
-
-        public static void HandleCountableItem(GameObject item, string fsmVar, int maxAmount, string name, string namePlural = null, Func<double, double> f = null)
-        {
-            int amount = item.GetComponent<PlayMakerFSM>().FsmVariables.FindFsmInt(fsmVar).Value;
-            GenerateText(amount, maxAmount, name, namePlural, f, alwaysExactCountablesSetting.GetValue());
+                text = Utils.EducatedGuessText(amountNormalized);
         }
 
         private static void HandleFireExtinguisher(GameObject item, string fsmVar, float maxAmount, string name, string namePlural = null, Func<double, double> f = null)
@@ -64,94 +54,46 @@ namespace HowMuchIsLeft
             {
                 amount = fsm.FsmVariables.FindFsmFloat(fsmVar);
                 if (amount != null) {
-                    GenerateText(amount.Value, maxAmount, name, namePlural, f);
+                    GenerateText(amount.Value, maxAmount, name, isCountable: false, namePlural, f);
                     return;
                 }
             }
         }
 
-        private static string Pluralize(double amount, string singular, string plural = null)
-        {
-            if (amount == 1)
-                return singular;
-
-            if (plural != null)
-                return plural;
-
-            return $"{singular}s";
-        }
-
-        private static string ExactValueText(double amount, string name)
-        {
-            return $"{amount:0.##} {name} remaining";
-        }
-
-        private static string RoughGuessText(double value)
-        {
-            if (value == 1.0)
-                return "it's full";
-            else if (value > .75)
-                return "it's almost full";
-            else if (value > .25)
-                return "about half remaining";
-            else
-                return "there's still some left";
-        }
-
-        private static string EducatedGuessText(double value)
-        {
-            if (value == 1.0)
-                return "it's full";
-            else if (value > .875)
-                return "nearly full";
-            else if (value > .75)
-                return "more than 3/4 left";
-            else if (value > .625)
-                return "less than 3/4 left";
-            else if (value >= 0.375)
-                return "about half remaining";
-            else if (value > .25)
-                return "more than 1/4 left";
-            else if (value > .125)
-                return "less than 1/4 left";
-            else
-                return "it's almost empty";
-        }
-
         private void RegisterCommonItems()
         {
-            API.ItemRegistry.RegisterItem("coolant(itemx)", (item) => HandleUncountableItem(item, "Fluid", 10f, "liter"));
-            API.ItemRegistry.RegisterItem("motor oil(itemx)", (item) => HandleUncountableItem(item, "Fluid", 4f, "liter"));
-            API.ItemRegistry.RegisterItem("brake fluid(itemx)", (item) => HandleUncountableItem(item, "Fluid", 1f, "liter"));
-            API.ItemRegistry.RegisterItem("two stroke fuel(itemx)", (item) => HandleUncountableItem(item, "Fluid", 5f, "liter"));
-            API.ItemRegistry.RegisterItem("ground coffee(itemx)", (item) => HandleUncountableItem(item, "Ground", 100f, "gram", f: (x) => x * 5f));
-            API.ItemRegistry.RegisterItem("grill charcoal(itemx)", (item) => HandleUncountableItem(item, "Contents", 140f, "liter", f: (x) => x / 10f));
-            API.ItemRegistry.RegisterItem("spray can(itemx)", (item) => HandleUncountableItem(item, "Fluid", 100f, "unit"));
-            API.ItemRegistry.RegisterItem("mosquito spray(itemx)", (item) => HandleUncountableItem(item, "Fluid", 100f, "unit"));
+            ItemRegistry.RegisterItem("coolant(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 10f, "liter"));
+            ItemRegistry.RegisterItem("motor oil(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 4f, "liter"));
+            ItemRegistry.RegisterItem("brake fluid(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 1f, "liter"));
+            ItemRegistry.RegisterItem("two stroke fuel(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 5f, "liter"));
+            ItemRegistry.RegisterItem("ground coffee(itemx)", (item) => Utils.HandleUncountableItem(item, "Ground", 100f, "gram", f: (x) => x * 5f));
+            ItemRegistry.RegisterItem("grill charcoal(itemx)", (item) => Utils.HandleUncountableItem(item, "Contents", 140f, "liter", f: (x) => x / 10f));
+            ItemRegistry.RegisterItem("spray can(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 100f, "unit"));
+            ItemRegistry.RegisterItem("mosquito spray(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 100f, "unit"));
 
-            API.ItemRegistry.RegisterItem("fuse package(Clone)", (item) => HandleCountableItem(item, "Quantity", 5, "fuse"));
-            API.ItemRegistry.RegisterItem("r20 battery box(Clone)", (item) => HandleCountableItem(item, "Quantity", 4, "battery", namePlural: "batteries"));
-            API.ItemRegistry.RegisterItem("spark plug box(Clone)", (item) => HandleCountableItem(item, "Quantity", 4, "spark plug"));
+            ItemRegistry.RegisterItem("fuse package(Clone)", (item) => Utils.HandleCountableItem(item, "Quantity", 5, "fuse"));
+            ItemRegistry.RegisterItem("r20 battery box(Clone)", (item) => Utils.HandleCountableItem(item, "Quantity", 4, "battery", namePlural: "batteries"));
+            ItemRegistry.RegisterItem("spark plug box(Clone)", (item) => Utils.HandleCountableItem(item, "Quantity", 4, "spark plug"));
 
-            API.ItemRegistry.RegisterItem("fire extinguisher(itemx)", (item) => HandleFireExtinguisher(item, "Fluid", 100f, "unit"));
+            ItemRegistry.RegisterItem("fire extinguisher(itemx)", (item) => HandleFireExtinguisher(item, "Fluid", 100f, "unit"));
         }
 
         private void RegisterMySummerCarItems()
         {
             RegisterCommonItems();
-            API.ItemRegistry.RegisterItem("teimo advert pile(itemx)", (item) => HandleCountableItem(item, "Sheets", 30, "sheet"));
+            ItemRegistry.RegisterItem("teimo advert pile(itemx)", (item) => Utils.HandleCountableItem(item, "Sheets", 30, "sheet"));
         }
 
         private void RegisterMyWinterCarItems()
         {
             RegisterCommonItems();
-            API.ItemRegistry.RegisterItem("automatic transmission fluid(itemx)", (item) => HandleUncountableItem(item, "Fluid", 1f, "liter"));
+            ItemRegistry.RegisterItem("automatic transmission fluid(itemx)", (item) => Utils.HandleUncountableItem(item, "Fluid", 1f, "liter"));
 
-            API.ItemRegistry.RegisterItem("advert pile(itemx)", (item) => HandleCountableItem(item, "Sheets", 30, "sheet"));
-            API.ItemRegistry.RegisterItem("chargers box(Clone)", (item) => HandleCountableItem(item, "Items", 40, "charger"));
-            API.ItemRegistry.RegisterItem("packaging sheets(Clone)", (item) => HandleCountableItem(item, "Items", 20, "sheet"));
-            API.ItemRegistry.RegisterItem("manuals box(Clone)", (item) => HandleCountableItem(item, "Items", 80, "manual"));
-            API.ItemRegistry.RegisterItem("plastic trays(Clone)", (item) => HandleCountableItem(item, "Items", 20, "tray"));
+            ItemRegistry.RegisterItem("advert pile(itemx)", (item) => Utils.HandleCountableItem(item, "Sheets", 30, "sheet"));
+            ItemRegistry.RegisterItem("chargers box(Clone)", (item) => Utils.HandleCountableItem(item, "Items", 40, "charger"));
+            ItemRegistry.RegisterItem("packaging sheets(Clone)", (item) => Utils.HandleCountableItem(item, "Items", 20, "sheet"));
+            ItemRegistry.RegisterItem("manuals box(Clone)", (item) => Utils.HandleCountableItem(item, "Items", 80, "manual"));
+            ItemRegistry.RegisterItem("plastic trays(Clone)", (item) => Utils.HandleCountableItem(item, "Items", 20, "tray"));
             // TODO: Packages box, look into the different logic 
         }
 
@@ -199,7 +141,7 @@ namespace HowMuchIsLeft
 
             GameObject item = raycastHit.transform.gameObject;
 
-            if (API.ItemRegistry.TryGetItemHandler(item.name, out Action<GameObject> handler))
+            if (ItemRegistry.TryGetItemHandler(item.name, out Action<GameObject> handler))
                 handler(item);
 
             ItemContentDescription.SetText(text);
