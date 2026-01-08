@@ -1,29 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using MSCLoader;
 using UnityEngine;
 
 namespace HowMuchIsLeft
 {
-
-    namespace API
-    {
-        public static class ItemRegistry
-        {
-            private static Dictionary<string, Action<GameObject>> itemHandlers = new Dictionary<string, Action<GameObject>>();
-            public static void RegisterItem(string itemName, Action<GameObject> handler)
-            {
-                itemHandlers[itemName] = handler;
-            }
-
-            public static bool TryGetItemHandler(string itemName, out Action<GameObject> handler)
-            {
-                return itemHandlers.TryGetValue(itemName, out handler);
-            }
-        }
-        
-    }
-
     public class HowMuchIsLeft : Mod
     {
         public override string ID => "HowMuchIsLeft"; // Your (unique) mod ID 
@@ -31,12 +11,7 @@ namespace HowMuchIsLeft
         public override string Author => "casper-3"; // Name of the Author (your name)
         public override string Version => "1.3.0"; // Version
         public override string Description => "Displays the contents of some items. See settings to customize."; // Short description of your mod
-
         public override Game SupportedGames => Game.MySummerCar | Game.MyWinterCar;
-
-        GameObject contentDescription;
-        TextMesh foregroundText;
-        TextMesh shadowText;
 
         private static SettingsCheckBoxGroup detailsExactSetting;
         private static SettingsCheckBoxGroup detailsRoughSetting;
@@ -45,8 +20,9 @@ namespace HowMuchIsLeft
         private static SettingsCheckBox alwaysExactCountablesSetting;
 
         private static string text;
+        static RaycastHit raycastHit;
 
-        private readonly int LayerItem = 19;
+        private readonly int layerItem = 19;
 
         public static void GenerateText(double amount, double maxAmount, string name, string namePlural = null, Func<Double, Double> f = null, bool forceExact = false)
         {
@@ -60,10 +36,7 @@ namespace HowMuchIsLeft
             var amountNormalized = amount / maxAmount;
 
             if (detailsRoughSetting.GetValue())
-            {
                 text = RoughGuessText(amountNormalized);
-                return;
-            }
 
             if (detailsEducatedSetting.GetValue())
                 text = EducatedGuessText(amountNormalized);
@@ -97,7 +70,7 @@ namespace HowMuchIsLeft
             }
         }
 
-        public static string Pluralize(double amount, string singular, string plural = null)
+        private static string Pluralize(double amount, string singular, string plural = null)
         {
             if (amount == 1)
                 return singular;
@@ -108,12 +81,12 @@ namespace HowMuchIsLeft
             return $"{singular}s";
         }
 
-        public static string ExactValueText(double amount, string name)
+        private static string ExactValueText(double amount, string name)
         {
             return $"{amount:0.##} {name} remaining";
         }
 
-        public static string RoughGuessText(double value)
+        private static string RoughGuessText(double value)
         {
             if (value == 1.0)
                 return "it's full";
@@ -125,7 +98,7 @@ namespace HowMuchIsLeft
                 return "there's still some left";
         }
 
-        public static string EducatedGuessText(double value)
+        private static string EducatedGuessText(double value)
         {
             if (value == 1.0)
                 return "it's full";
@@ -204,9 +177,7 @@ namespace HowMuchIsLeft
 
         private void Mod_OnLoad()
         {
-            // Called once, when mod is loading after game is fully loaded
-            InitializeDescription();
-
+            // Called once, when mod is loading after game is fully 
             if (ModLoader.CurrentGame == Game.MySummerCar)
                 RegisterMySummerCarItems();
             else if (ModLoader.CurrentGame == Game.MyWinterCar)
@@ -215,16 +186,14 @@ namespace HowMuchIsLeft
 
         private void Mod_Update()
         {
-            // Update is called once per frame
             text = "";
-
-            RaycastHit raycastHit = UnifiedRaycast.GetRaycastHit();
+            raycastHit = UnifiedRaycast.GetRaycastHit();
 
             if (
                 raycastHit.collider == null || 
-                raycastHit.transform.gameObject.layer != LayerItem)
+                raycastHit.transform.gameObject.layer != layerItem)
             {
-                UpdateDescription(text);
+                ItemContentDescription.SetText(text);
                 return;
             };
 
@@ -233,32 +202,7 @@ namespace HowMuchIsLeft
             if (API.ItemRegistry.TryGetItemHandler(item.name, out Action<GameObject> handler))
                 handler(item);
 
-            UpdateDescription(text);
-        }
-
-        private void InitializeDescription()
-        {
-            GameObject partName = GameObject.Find("GUI/Indicators/Partname");
-
-            contentDescription = GameObject.Instantiate(partName);
-
-            GameObject.Destroy(contentDescription.GetComponent<PlayMakerFSM>());
-
-            contentDescription.name = "ContentDescription";
-            contentDescription.transform.parent = partName.transform.parent;
-            contentDescription.transform.localPosition = new Vector3(0.0f, -0.21f, 0.0f);
-
-            foregroundText = contentDescription.GetComponent<TextMesh>();
-            shadowText = contentDescription.transform.GetChild(0).GetComponent<TextMesh>();
-
-            foregroundText.characterSize = 0.05f;
-            shadowText.characterSize = 0.05f;
-        }
-
-        private void UpdateDescription(string text)
-        {
-            foregroundText.text = text;
-            shadowText.text = text;
+            ItemContentDescription.SetText(text);
         }
     }
 }
