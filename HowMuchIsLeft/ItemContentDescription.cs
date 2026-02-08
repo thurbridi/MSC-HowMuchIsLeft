@@ -2,19 +2,32 @@
 
 namespace HowMuchIsLeft
 {
-    internal static class ItemContentDescription
+    internal class ItemContentDescription
     {
-        static GameObject contentDescription;
-        static TextMesh foregroundText;
-        static TextMesh shadowText;
+        private static ItemContentDescription _instance;
+        private GameObject contentDescription;
+        private TextMesh foregroundText;
+        private TextMesh shadowText;
 
-
-        static ItemContentDescription()
+        internal static ItemContentDescription Instance()
         {
-            CreateContentDescription();
+            _instance = _instance ?? new ItemContentDescription();
+            return _instance;
         }
 
-        static void CreateContentDescription()
+        internal void SetText(string text)
+        {
+            foregroundText.text = text;
+            shadowText.text = text;
+        }
+
+        internal void ClearText()
+        {
+            foregroundText.text = "";
+            shadowText.text = "";
+        }
+
+        private void CreateContentDescription()
         {
             GameObject partName = GameObject.Find("GUI/Indicators/Partname");
 
@@ -33,16 +46,9 @@ namespace HowMuchIsLeft
             shadowText.characterSize = 0.05f;
         }
 
-        public static void SetText(string text)
+        private ItemContentDescription()
         {
-            foregroundText.text = text;
-            shadowText.text = text;
-        }
-
-        public static void ClearText()
-        {
-            foregroundText.text = "";
-            shadowText.text = "";
+            CreateContentDescription();
         }
     }
 }

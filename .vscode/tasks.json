@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Debug and Deploy",
+			"type": "shell",
+			"command": "dotnet build -p:Configuration=Debug && cp bin/Debug/net35/HowMuchIsLeft.dll /home/casper/.local/share/Steam/steamapps/common/My\\ Winter\\ Car/Mods/HowMuchIsLeft.dll && cp bin/Debug/net35/HowMuchIsLeft.dll /home/casper/.local/share/Steam/steamapps/common/My\\ Summer\\ Car/Mods/HowMuchIsLeft.dll",
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build Release and Deploy",
+			"type": "shell",
+			"command": "dotnet build -p:Configuration=Release && cp bin/Release/net35/HowMuchIsLeft.dll /home/casper/.local/share/Steam/steamapps/common/My\\ Winter\\ Car/Mods/HowMuchIsLeft.dll && cp bin/Release/net35/HowMuchIsLeft.dll /home/casper/.local/share/Steam/steamapps/common/My\\ Summer\\ Car/Mods/HowMuchIsLeft.dll",
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		}
+	]
+}
