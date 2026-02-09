@@ -9,6 +9,8 @@ namespace HowMuchIsLeft
         private TextMesh foregroundText;
         private TextMesh shadowText;
 
+        private ItemContentDescription() { }
+
         internal static ItemContentDescription Instance()
         {
             _instance = _instance ?? new ItemContentDescription();
@@ -27,9 +29,14 @@ namespace HowMuchIsLeft
             shadowText.text = "";
         }
 
-        private void CreateContentDescription()
+        internal void Initialize()
         {
-            GameObject partName = GameObject.Find("GUI/Indicators/Partname");
+            GameObject partName = GameObject.Find("GUI").transform.Find("Indicators/Partname").gameObject;
+            if (partName == null)
+            {
+                Debug.LogError("[HMIL]: Could not find Partname GameObject. Content description will not be created.");
+                return;
+            }
 
             contentDescription = GameObject.Instantiate(partName);
 
@@ -44,11 +51,6 @@ namespace HowMuchIsLeft
 
             foregroundText.characterSize = 0.05f;
             shadowText.characterSize = 0.05f;
-        }
-
-        private ItemContentDescription()
-        {
-            CreateContentDescription();
         }
     }
 }

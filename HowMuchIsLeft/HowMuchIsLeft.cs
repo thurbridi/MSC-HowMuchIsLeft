@@ -143,6 +143,7 @@ namespace HowMuchIsLeft
         {
             // Called once, when mod is loading after game is fully 
             itemContentDescription = ItemContentDescription.Instance();
+            itemContentDescription.Initialize();
 
             if (ModLoader.CurrentGame == Game.MySummerCar)
                 RegisterMySummerCarItems();
