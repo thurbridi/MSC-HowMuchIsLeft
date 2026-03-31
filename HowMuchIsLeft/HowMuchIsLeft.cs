@@ -23,7 +23,7 @@ namespace HowMuchIsLeft
         private ItemContentDescription itemContentDescription;
         private RaycastHit raycastHit;
 
-        private readonly int layerItem = 19;
+        private readonly int layerItem = LayerMask.NameToLayer("Parts");
 
         internal static void GenerateText(double amount, double maxAmount, string name, bool isCountable, string namePlural = null, Func<Double, Double> f = null)
         {
