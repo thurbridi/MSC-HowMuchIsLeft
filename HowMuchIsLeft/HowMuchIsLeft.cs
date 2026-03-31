@@ -158,12 +158,12 @@ namespace HowMuchIsLeft
 
             if (
                 raycastHit.collider == null ||
-                raycastHit.transform.gameObject.layer != layerItem)
+                raycastHit.transform.gameObject.layer != layerItem ||
+                raycastHit.distance > 1f)
             {
                 itemContentDescription.SetText(text);
                 return;
             }
-            ;
 
             GameObject item = raycastHit.transform.gameObject;
 
