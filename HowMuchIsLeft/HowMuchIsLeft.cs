@@ -10,7 +10,7 @@ namespace HowMuchIsLeft
         public override string ID => "HowMuchIsLeft"; // Your (unique) mod ID 
         public override string Name => "HowMuchIsLeft"; // Your mod name
         public override string Author => "casper-3"; // Name of the Author (your name)
-        public override string Version => "1.3.3"; // Version
+        public override string Version => "1.3.4"; // Version
         public override string Description => "Displays the contents of some items. See settings to customize."; // Short description of your mod
         public override Game SupportedGames => Game.MySummerCar | Game.MyWinterCar;
 
